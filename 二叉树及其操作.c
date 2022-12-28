@@ -1,13 +1,16 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdbool.h>
 #include<string.h>
-#include"MyStruct.h"
+struct TreeNode{
+    int val;
+    struct TreeNode* left;
+    struct TreeNode* right;
+};
 int Max(int a, int b) {
     return a >= b ? a : b;
 }
-//BFS¹¹Ôì¶ş²æÊ÷
+//BFSæ„é€ äºŒå‰æ ‘
 struct TreeNode* create_tree(int* nums, int n) {
     int front = 0, rear = 0, size = 0, i = 0, j = 0;
     struct TreeNode** queue = NULL, * tmp = NULL, * newNode = NULL;
@@ -52,13 +55,13 @@ struct TreeNode* create_tree(int* nums, int n) {
     }
     return root;
 }
-//ÇóÊ÷¸ß
+//æ±‚æ ‘é«˜
 int TreeHeight(struct TreeNode* root) {
     if (root == NULL)
         return 0;
     else return 1 + Max(TreeHeight(root->left), TreeHeight(root->right));
 }
-//¶ş²æÊ÷Ç°Ğò±éÀú_µİ¹é°æ
+//äºŒå‰æ ‘å‰åºéå†_é€’å½’ç‰ˆ
 void pre_order_traversal(struct TreeNode* root, int* nums, int* n) {
     if (root) {
         nums[*n] = root->val;
@@ -67,7 +70,7 @@ void pre_order_traversal(struct TreeNode* root, int* nums, int* n) {
         pre_order_traversal(root->right, nums, n);
     }
 }
-//¸ù¾İÇ°Ğò±éÀúºÍÖĞĞò±éÀú½¨Á¢¶ş²æÊ÷
+//æ ¹æ®å‰åºéå†å’Œä¸­åºéå†å»ºç«‹äºŒå‰æ ‘
 struct TreeNode* buildTree(int* preorder, int preorderSize, int* inorder, int inorderSize) {
     if (inorderSize <= 0)
         return NULL;
@@ -85,7 +88,7 @@ struct TreeNode* buildTree(int* preorder, int preorderSize, int* inorder, int in
     newNode->right = buildTree(&preorder[i + 1], preorderSize - i - 1, &inorder[i + 1], inorderSize - i - 1);
     return newNode;
 }
-//ÊÍ·Å¶ş²æÊ÷
+//é‡Šæ”¾äºŒå‰æ ‘
 void freeTree(struct TreeNode* root) {
     if (root) {
         freeTree(root->left);
