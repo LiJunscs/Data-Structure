@@ -34,8 +34,10 @@ int main() {
 		getchar();
 		scanf("%s", filename);
 		fin = fopen(filename, "r");
-		while (fscanf(fin, "%d", &val) != -1)
+		while (fscanf(fin, "%d", &val) != -1) {
 			root = insert_node(root, val);
+			//print_tree(root, 1);
+		}
 		fclose(fin);
 	}
 	while (flag) {
@@ -98,8 +100,14 @@ void rotate_RR(Tree* root) {
 	//保存传进来的根节点的右子树
 	Tree* rTree = root->rchild;
 	//修改平衡因子
-	root->bf = 0;
-	rTree->bf = 0;
+	if (!root->lchild  && rTree->lchild && rTree->rchild) {//删除操作导致的特殊情况，左子树为空，右子树高度为2
+		rTree->bf = -1;
+		root->bf = 1;
+	}
+	else {//正常插入的情况
+		root->bf = 0;
+		rTree->bf = 0;
+	}
 	//将右子树的的左子树给根节点，并修改其父节点
 	root->rchild = rTree->lchild;
 	if(rTree->lchild)
@@ -120,8 +128,14 @@ void rotate_LL(Tree* root) {
 	//保存传进来的根节点的左子树
 	Tree* lTree = root->lchild;
 	//修改平衡因子
-	lTree->bf = 0;
-	root->bf = 0;
+	if (!root->rchild && lTree->lchild && lTree->rchild) {//删除操作导致的特殊情况，右子树为空，左子树高度为2
+		lTree->bf = 1;
+		root->bf = -1;
+	}
+	else {//正常插入的情况
+		lTree->bf = 0;
+		root->bf = 0;
+	}
 	//将左子树的右子树给根节点，并修改其父节点
 	root->lchild = lTree->rchild;
 	if(lTree->rchild)
@@ -168,49 +182,6 @@ void rotate_LR(Tree* root) {
 	else if (bf == 1) {
 		lc->bf = -1;
 		root->bf = 0;
-	}
-}
-//针对删除操作下可能导致一些插入时不可能出现的情况进行特殊处理
-void rotate_RL_delete(Tree* root) {
-	Tree* rc = root->rchild;
-	int bf = rc->lchild->bf;
-	//先进行右旋再进行左旋
-	rotate_LL(root->rchild);
-	rotate_RR(root);
-	//根据不同情况，修改对应的bf值
-	if (bf == -1) {
-		root->bf = 0;
-		rc->bf = 1;
-	}
-	else if (bf == 1) {
-		root->bf = -1;
-		rc->bf = 0;
-	}
-	else {//只有在删除操作下才能导致的特殊情况
-		root->bf = 0;
-		root->parent->bf = 1;
-		rc->bf = 1;
-	}
-}
-void rotate_LR_delete(Tree* root) {
-	Tree* lc = root->lchild;
-	int  bf = lc->rchild->bf;
-	//先进行右旋再进行左旋
-	rotate_RR(root->lchild);
-	rotate_LL(root);
-	//根据情况修改对应的bf值
-	if (bf == -1) {
-		lc->bf = 0;
-		root->bf = 1;
-	}
-	else if (bf == 1) {
-		lc->bf = -1;
-		root->bf = 0;
-	}
-	else {//只有在删除操作下才能导致的特殊情况
-		lc->bf = -1;
-		root->bf = 0;
-		root->parent->bf = -1;
 	}
 }
 Tree* create_node(int val) {
@@ -311,9 +282,10 @@ Tree* search_node(Tree* root, int val, int* cnt) {
 	return cur;
 }
 bool delete_node(Tree** root, int val) {
-	Tree* real = NULL, * tmp = NULL, * pParent = NULL, * cur = *root;
+	Tree* real = NULL,* pParent = NULL, * cur = *root;
 	Tree* stack[20] = { NULL };//用一个栈保存删除过程中经过的顶点，便于后续调整
 	int top = 0;
+	//根据二叉搜索树的性质寻找需要被删除的节点,并将经过的路径保存到栈中
 	while (cur && cur->val != val) {
 		stack[top++] = cur;
 		if (cur->val < val)
@@ -332,7 +304,6 @@ bool delete_node(Tree** root, int val) {
 		cur->val = real->val;
 		cur = real;
 	}
-	tmp = cur;//保存实际删除节点的指针，确保空间被释放
 	//以cur作为实际要删除的节点，real作为实际保留的节点
 	if (cur->lchild) //如果只有左儿子，则只需要将左儿子变成现任父亲的左儿子即可
 		real = cur->lchild;
@@ -340,7 +311,7 @@ bool delete_node(Tree** root, int val) {
 	if (cur->parent == NULL)//如果删除目标是整个AVL树的根节点
 		*root = real;
 	else {//根据被删除节点是其父节点的左右儿子来改变其现任左右儿子和bf值
-		pParent = stack[--top];//从栈中取出第一个父节点
+		pParent = stack[top - 1];//从栈中查看第一个父节点
 		if (cur == pParent->lchild) {
 			pParent->lchild = real;
 			if(real)
@@ -352,9 +323,10 @@ bool delete_node(Tree** root, int val) {
 				real->parent = pParent;
 		}
 	}
-	free(tmp);//释放真正被删除节点的内存
-	cur = real;//从被改变的儿子节点开始，向上调整
-	while (pParent && top >= 0) {
+	free(cur);//释放真正被删除节点的内存
+	cur = real;//从新的儿子节点开始，向上调整
+	while (top > 0) {
+		pParent = stack[--top];//从栈中取出当前节点的父节点
 		if (pParent->lchild == NULL && pParent->rchild == NULL)
 			pParent->bf = 0;
 		else {
@@ -366,30 +338,25 @@ bool delete_node(Tree** root, int val) {
 		对于更高层次的根节点来说，这棵子树的高度没有发生变化，不需要调整*/
 		if (pParent->bf == 1 || pParent->bf == -1)
 			break;
-		//若父节点的高度变成了0，则说明高层的树某一子树的高度变低，需要向上调整
-		else if (pParent->bf == 0) {
+		//若父节点的bf值变成了0，则说明高层的树某一子树的高度变低，需要向上调整
+		else if (pParent->bf == 0) 
 			cur = pParent;
-			pParent = stack[--top];
-		}
 		else {//若父节点的bf值变成2或-2，则直接判断类型，进行调整
 			if (pParent->bf == 2) {
-				if (pParent->rchild->bf == 1)
+				if (pParent->rchild->bf == 1 || pParent->rchild->bf == 0)//在删除一个节点导致某一棵子树为空时，可能出现另一半子树的bf值为0的情况
 					rotate_RR(pParent);
-				else rotate_RL_delete(pParent);
-				if ((* root)->parent)
+				else rotate_RL(pParent);
+				if ((* root)->parent)//若根节点被改变，则新的根节点为原根节点的父节点
 					*root = (*root)->parent;
 			}
 			else {
-				if (pParent->lchild->bf == -1)
+				if (pParent->lchild->bf == -1 || pParent->lchild->bf == 0)
 					rotate_LL(pParent);
-				else rotate_LR_delete(pParent);
+				else rotate_LR(pParent);
 				if ((*root)->parent)
 					*root = (*root)->parent;
 			}
-			cur = pParent->parent;
-			if (top > 0)
-				pParent = stack[--top];
-			else top--;
+			cur = pParent->parent;//由于旋转，下一轮调整的儿子节点变成现在的父节点的父节点
 		}
 	}
 	return true;
