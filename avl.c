@@ -2,6 +2,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdbool.h>
+#include<time.h>
 struct TreeNode {
 	struct TreeNode* parent;
 	struct TreeNode* lchild;
@@ -10,6 +11,89 @@ struct TreeNode {
 	int val;//存储的数据
 };
 typedef struct TreeNode Tree;
+void rotate_RR(Tree*);
+void rotate_RL(Tree*);
+void rotate_LL(Tree*);
+void rotate_LR(Tree*);
+Tree* create_node(int);
+Tree* insert_node(Tree*, int);
+Tree* search_node(Tree*, int, int*);
+bool delete_node(Tree**, int);
+void free_tree(Tree*);
+void print_tree(Tree*, int);
+int main() {
+	int val = 0, flag = 1;
+	Tree* root = NULL;
+	char filename[50] = "\0";
+	FILE* fin;
+	char fflag = 'n';
+	printf("是否以文件数据建立查找树?(y/n) ");
+	scanf("%c", &fflag);
+	if (fflag == 'y') {
+		printf("请输入文件名: ");
+		getchar();
+		scanf("%s", filename);
+		fin = fopen(filename, "r");
+		while (fscanf(fin, "%d", &val) != -1)
+			root = insert_node(root, val);
+		fclose(fin);
+	}
+	while (flag) {
+		printf("操作菜单：1:insert\t2:delete\t3:find\n\t  4:查看二叉树\t5:清屏\t\t6:quit\n");
+		int order = 4, val = 0;
+		printf("请选择操作: ");
+		scanf("%d", &order);
+		switch (order) {
+		case 1:printf("请输入需要插入的关键字: ");
+			scanf("%d", &val); 
+			root = insert_node(root, val); 
+			break;
+		case 2:
+			if (root == NULL) {
+				printf("当前树为空，请重新选择\n");
+				break;
+			}
+			printf("请输入需要删除的关键字: ");
+			scanf("%d", &val);
+			bool res = delete_node(&root, val);
+			if (res) printf("删除成功\n");
+			else printf("需要删除的关键字不存在\n");
+			break;
+		case 3:
+			if (root == NULL) {
+				printf("当前树为空，请重新选择\n");
+				break;
+			}
+			printf("请输入需要查找的关键字: ");
+			scanf("%d", &val);
+			int cnt = 0;
+			double duration = 0.0;
+			Tree* tmp = NULL;
+			clock_t start = clock();
+			for(int i=1;i<=100000;i++)
+				tmp = search_node(root, val, &cnt);
+			clock_t end = clock();
+			duration = ((double)end - start) / 100000 / CLK_TCK;
+			if (tmp) {
+				printf("关键字为%d, 查找的比较次数为%d, 花费时间%.9lf\n", val, cnt / 100000 + 1, duration);
+			}
+			else printf("需要查找的关键字不存在, 查找比较次数为%d, 花费时间%.9lf\n", cnt / 100000 + 1, duration);
+			break;
+		case 4:
+			if (root == NULL) {
+				printf("当前树为空，请重新选择\n");
+				break;
+			}
+			print_tree(root, 1); break;
+		case 5:system("cls"); break;
+		case 6:printf("欢迎再次使用A_A\n");
+			flag = 0;
+			free_tree(root);
+			break;
+		}
+	}
+	return 0;
+}
 void rotate_RR(Tree* root) {
 	//保存传进来的根节点的右子树
 	Tree* rTree = root->rchild;
@@ -65,11 +149,10 @@ void rotate_RL(Tree* root) {
 		root->bf = 0;
 		rc->bf = 1;
 	}
-	else if (bf = 1) {
+	else if (bf == 1) {
 		root->bf = -1;
 		rc->bf = 0;
 	}
-
 }
 void rotate_LR(Tree* root) {
 	Tree* lc = root->lchild;
@@ -85,6 +168,49 @@ void rotate_LR(Tree* root) {
 	else if (bf == 1) {
 		lc->bf = -1;
 		root->bf = 0;
+	}
+}
+//针对删除操作下可能导致一些插入时不可能出现的情况进行特殊处理
+void rotate_RL_delete(Tree* root) {
+	Tree* rc = root->rchild;
+	int bf = rc->lchild->bf;
+	//先进行右旋再进行左旋
+	rotate_LL(root->rchild);
+	rotate_RR(root);
+	//根据不同情况，修改对应的bf值
+	if (bf == -1) {
+		root->bf = 0;
+		rc->bf = 1;
+	}
+	else if (bf == 1) {
+		root->bf = -1;
+		rc->bf = 0;
+	}
+	else {//只有在删除操作下才能导致的特殊情况
+		root->bf = 0;
+		root->parent->bf = 1;
+		rc->bf = 1;
+	}
+}
+void rotate_LR_delete(Tree* root) {
+	Tree* lc = root->lchild;
+	int  bf = lc->rchild->bf;
+	//先进行右旋再进行左旋
+	rotate_RR(root->lchild);
+	rotate_LL(root);
+	//根据情况修改对应的bf值
+	if (bf == -1) {
+		lc->bf = 0;
+		root->bf = 1;
+	}
+	else if (bf == 1) {
+		lc->bf = -1;
+		root->bf = 0;
+	}
+	else {//只有在删除操作下才能导致的特殊情况
+		lc->bf = -1;
+		root->bf = 0;
+		root->parent->bf = -1;
 	}
 }
 Tree* create_node(int val) {
@@ -173,101 +299,114 @@ Tree* insert_node(Tree* root, int val) {
 	}//end while
 	return root;
 }
-Tree* search_node(Tree* root, int val) {
+Tree* search_node(Tree* root, int val, int* cnt) {
 	//根据二叉搜索树的性质，比根节点的数大的数在右儿子，比根节点小的在左儿子，进行迭代即可
 	Tree* cur = root;
 	while (cur&&cur->val != val) {
+		(*cnt)++;
 		if (cur->val < val)
 			cur = cur->rchild;
 		else cur = cur->lchild;
 	}
 	return cur;
 }
-bool delete_node(Tree* root, int val) {
-	Tree* cur = search_node(root, val);//先找到需要删除的节点
-	if (cur == NULL)//没找到直接返回false
+bool delete_node(Tree** root, int val) {
+	Tree* real = NULL, * tmp = NULL, * pParent = NULL, * cur = *root;
+	Tree* stack[20] = { NULL };//用一个栈保存删除过程中经过的顶点，便于后续调整
+	int top = 0;
+	while (cur && cur->val != val) {
+		stack[top++] = cur;
+		if (cur->val < val)
+			cur = cur->rchild;
+		else cur = cur->lchild;
+	}
+	if (cur == NULL)//如果需要删除的值不存在
 		return false;
-	if (cur->lchild == NULL && cur->rchild == NULL) {
-		//若需要删除的是一个叶子节点，则直接删除，然后自底向上调整
-		//修改被删除节点父节点的左右儿子指针和bf值
-		Tree* pParent = cur->parent;
-		if (pParent == NULL) {
-			free(cur);
-			return true;
+	if (cur->lchild && cur->rchild) {//需要删除的节点左右儿子都在，转化为删除前驱
+		real = cur->lchild;
+		stack[top++] = cur;
+		while (real->rchild) {
+			stack[top++] = real;
+			real = real->rchild;
 		}
+		cur->val = real->val;
+		cur = real;
+	}
+	tmp = cur;//保存实际删除节点的指针，确保空间被释放
+	//以cur作为实际要删除的节点，real作为实际保留的节点
+	if (cur->lchild) //如果只有左儿子，则只需要将左儿子变成现任父亲的左儿子即可
+		real = cur->lchild;
+	else real = cur->rchild;//如果只有右儿子，则只需要将右儿子变成现任父亲的右儿子即可
+	if (cur->parent == NULL)//如果删除目标是整个AVL树的根节点
+		*root = real;
+	else {//根据被删除节点是其父节点的左右儿子来改变其现任左右儿子和bf值
+		pParent = stack[--top];//从栈中取出第一个父节点
 		if (cur == pParent->lchild) {
-			pParent->lchild = NULL;
-			pParent->bf++;
+			pParent->lchild = real;
+			if(real)
+				real->parent = pParent;
 		}
 		else {
-			pParent->rchild = NULL;
-			pParent->bf--;
+			pParent->rchild = real;
+			if (real)
+				real->parent = pParent;
 		}
-		free(cur);//释放内存
-		//从被删除节点的父节点开始，向上调整整棵树
-		while (pParent) {
-			/*如果父节点的bf值变成了1或 - 1，说明父节点的原先的bf值为0，
-			对于更高层次的根节点来说，这棵子树的高度没有发生变化，不需要调整*/
-			if (pParent->bf == 1|| pParent->bf == -1)
-				break;
-			//若父节点的高度变成了0，则说明高层的树某一子树的高度变低，需要向上调整
-			else if (pParent->bf == 0) {
-				if (pParent == pParent->parent->lchild)
-					pParent->parent->bf++;
-				else pParent->parent->bf--;
-				pParent = pParent->parent;
-			}
-			else {//若父节点的bf值变成2或-2，则直接判断类型，进行调整
-				if (pParent->bf == 2) {
-					if (pParent->rchild->bf == 1)
-						rotate_RR(pParent);
-					else rotate_RL(pParent);
-				}
-				else {
-					if (pParent->lchild->bf == -1)
-						rotate_LL(pParent);
-					else rotate_LR(pParent);
-				}//end if
-				break;//通常只破坏一处
-			}//end if 判断是否需要调整
-		}//end while
-		return true;
-	}//end if 判断是否删除叶节点
-	else if (cur->lchild) {
-		//如果被删除节点不是叶节点，则先去寻找它的左子树中最大的值，将这个值赋给被删除的节点，然后删除下面的节点即可
-		Tree* dNode = cur->lchild;
-		//寻找左子树的最大值
-		while (dNode->rchild)
-			dNode = dNode->rchild;
-		//修改被删除节点
-		cur->val = dNode->val;
-		//删除左子树中的相同顶点
-		return delete_node(cur->lchild, dNode->val);
 	}
-	else {
-		//如果被删除节点不是叶子节点，也没有左子树，则寻找它的右子树中的最小值，然后将这个值赋给被删除节点，转而删除找到的节点
-		Tree* dNode = cur->rchild;
-		//寻找右子树的最小值
-		while (dNode->lchild)
-			dNode = dNode->lchild;
-		//修改被删除节点
-		cur->val = dNode->val;
-		//删除右子树中的相同顶点
-		return delete_node(cur->rchild, dNode->val);
+	free(tmp);//释放真正被删除节点的内存
+	cur = real;//从被改变的儿子节点开始，向上调整
+	while (pParent && top >= 0) {
+		if (pParent->lchild == NULL && pParent->rchild == NULL)
+			pParent->bf = 0;
+		else {
+			if (cur == pParent->lchild)
+				pParent->bf++;
+			else pParent->bf--;
+		}
+		/*如果父节点的bf值变成了1或 - 1，说明父节点的原先的bf值为0，
+		对于更高层次的根节点来说，这棵子树的高度没有发生变化，不需要调整*/
+		if (pParent->bf == 1 || pParent->bf == -1)
+			break;
+		//若父节点的高度变成了0，则说明高层的树某一子树的高度变低，需要向上调整
+		else if (pParent->bf == 0) {
+			cur = pParent;
+			pParent = stack[--top];
+		}
+		else {//若父节点的bf值变成2或-2，则直接判断类型，进行调整
+			if (pParent->bf == 2) {
+				if (pParent->rchild->bf == 1)
+					rotate_RR(pParent);
+				else rotate_RL_delete(pParent);
+				if ((* root)->parent)
+					*root = (*root)->parent;
+			}
+			else {
+				if (pParent->lchild->bf == -1)
+					rotate_LL(pParent);
+				else rotate_LR_delete(pParent);
+				if ((*root)->parent)
+					*root = (*root)->parent;
+			}
+			cur = pParent->parent;
+			if (top > 0)
+				pParent = stack[--top];
+			else top--;
+		}
 	}
 	return true;
 }
-int main() {
-	int val = 0;
-	Tree* root = NULL;
-	while (val != -1) {
-		scanf("%d", &val);
-		root = insert_node(root, val);
+void free_tree(Tree* root) {
+	if (root) {
+		free_tree(root->lchild);
+		free_tree(root->rchild);
+		free(root);
 	}
-	while (val != 0) {
-		bool state = delete_node(root, val);
-		printf("%d\n", state);
-		scanf("%d", &val);
+}
+void print_tree(Tree* root, int depth) {
+	if (root) {
+		for (int i = 1; i <= depth; i++)
+			printf("*");
+		printf("%d\n", root->val);
+		print_tree(root->lchild, depth+1);
+		print_tree(root->rchild, depth+1);
 	}
-	return 0;
 }
