@@ -1,0 +1,94 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <math.h>
+// 含有重复元素的(集合)求幂集，回溯+去重
+/*考虑数组 [1,2,2][1, 2, 2][1,2,2]，选择前两个数，或者第一、三个数，都会得到相同的子集。
+
+也就是说，对于当前选择的数 xxx，若前面有与其相同的数 yyy，且没有选择 yyy，此时包含 xxx 的子集，必然会出现在包含 yyy 的所有子集中。
+
+我们可以通过判断这种情况，来避免生成重复的子集。代码实现时，可以先将数组排序；迭代时，若发现没有选择上一个数，且当前数字与上一个数相同，则可以跳过当前生成的子集。
+原答案来源:
+作者：力扣官方题解
+链接：https://leetcode.cn/problems/subsets-ii/solutions/690549/zi-ji-ii-by-leetcode-solution-7inq/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+*/
+// 快排
+int cmp(const void *pa, const void *pb)
+{
+    int a = *(int *)pa;
+    int b = *(int *)pb;
+    return a > b ? 1 : -1;
+}
+// 回溯
+void backtrace(int *nums, int numsSize, int **res, int *returnSize, int **returnColumnSizes, int *set, int setSize, int index)
+{
+    // 由于是选择子集，故每次回溯的结果都应该是答案
+    if (*returnSize == 0) // 第一个设置为空集
+    {
+        res[0] = NULL;
+        (*returnColumnSizes)[0] = 0;
+        (*returnSize)++;
+    }
+    else
+    {
+        // 将当前选择的数组加入答案
+        // 申请空间，不能直接将指针指向当前的数组，因为指的是用一个堆空间，当数组改变时，指针指向的内容也随之改变
+        res[*returnSize] = (int *)malloc(sizeof(int *) * setSize);
+        // 记录返回的每一个数组的长度
+        (*returnColumnSizes)[*returnSize] = setSize;
+        // 将当前数组复制到申请的空间
+        memcpy(res[*returnSize], set, sizeof(int) * setSize);
+        // 子集数目+1
+        (*returnSize)++;
+    }
+    // 从指定位置开始回溯
+    for (int i = index; i < numsSize; i++)
+    {
+        // 去重，如果当前的数字它的前一个数字属于同一轮的话，即i>index，若不是同一轮，则i=index，跳过当前的数字
+        if (i > index && nums[i] == nums[i - 1])
+            continue;
+        // 将当前的数字加入数组
+        set[setSize++] = nums[i];
+        // 从下一个数字进行回溯
+        backtrace(nums, numsSize, res, returnSize, returnColumnSizes, set, setSize, i + 1);
+        // 回溯结束，恢复下标
+        setSize--;
+    }
+}
+//int* returnSize为答案二维数组行数的指针，int** returnColumnSizes为(int* returnColumnSizes)存储每一个子集大小的数组的指针
+int **subsetsWithDup(int *nums, int numsSize, int *returnSize, int **returnColumnSizes)
+{
+    // 申请答案二维数组的空间和需要返回的存储每一个子集大小的数组空间
+    int len = pow(2, numsSize), index = 0, setSize = 0;
+    int **res = (int **)malloc(sizeof(int *) * len);
+    int *set = (int *)malloc(sizeof(int) * numsSize);
+    // 快排
+    qsort(nums, numsSize, sizeof(int), cmp);
+    *returnColumnSizes = (int *)malloc(sizeof(int) * len);
+    *returnSize = 0;
+    backtrace(nums, numsSize, res, returnSize, returnColumnSizes, set, setSize, index);
+    return res;
+}
+int main()
+{
+    int i, j, n;
+    scanf("%d", &n);
+    int *nums = (int *)malloc(sizeof(int) * n);
+    int **res, *col, row;
+    for (i = 0; i < n; i++)
+        scanf("%d", &nums[i]);
+    res = subsetsWithDup(nums, n, &row, &col);
+    for (i = 0; i < row; i++)
+    {
+        for (j = 0; j < col[i]; j++)
+            printf("%d ", res[i][j]);
+        printf("\n");
+        free(res[i]);
+    }
+    free(res);
+    free(nums);
+    return 0;
+}
