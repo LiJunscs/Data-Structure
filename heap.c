@@ -17,7 +17,7 @@ void freeHeap(struct heap*);
 struct heap* init_maxHeap(int maxsize) {
 	//初始化一个最大堆
 	struct heap* H = (struct heap*)malloc(sizeof(struct heap*));
-	H->nums = (int*)malloc(sizeof(int) * maxsize);
+	H->nums = (int*)malloc(sizeof(int) * (maxsize + 1));
 	H->size = 0;
 	H->maxSize = maxsize;
 	//数组的小标0位置作为一个哨兵
@@ -56,6 +56,7 @@ int deleteHeap(struct heap* H) {
 	return maxItem;
 }
 //根据已有数组建堆，即从最后一个非叶子节点开始，调整堆
+//假设已有的数组nums是从下标1开始的
 struct heap* create_maxHeap(int* nums, int numsSize) {
 	int i = numsSize / 2;//数组中最后一个非叶子节点
 	int parent, child, tmp;
@@ -65,7 +66,7 @@ struct heap* create_maxHeap(int* nums, int numsSize) {
 		tmp = nums[i];
 		for (parent = i; parent * 2 <= numsSize; parent = child) {
 			child = parent * 2;
-			if (child < numsSize-1 && nums[child] < nums[child + 1])
+			if (child <= numsSize-1 && nums[child] < nums[child + 1])
 				child++;
 			if (tmp > nums[child])
 				break;
@@ -74,8 +75,8 @@ struct heap* create_maxHeap(int* nums, int numsSize) {
 		nums[parent] = tmp;
 	}
 	H = init_maxHeap(MAXSIZE);
-	memcpy(H->nums, nums, sizeof(int) * numsSize);
-	H->size = numsSize - 1;
+	memcpy(&(H->nums[1]), nums, sizeof(int) * numsSize);
+	H->size = numsSize;
 	return H;
 }
 void freeHeap(struct heap* H) {
