@@ -42,7 +42,7 @@ public:
         visit.resize(numCourses);
         //建立邻接表
         for (auto &p : prerequisites)
-            Edges[p[0]].push_back(p[1]);
+            Edges[p[1]].push_back(p[0]);
         //搜索每一个未搜索的顶点
         for (int i = 0; i < numCourses && valid; i++)
         {
